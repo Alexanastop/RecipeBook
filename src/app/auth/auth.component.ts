@@ -1,12 +1,15 @@
 import { Component, ComponentFactoryResolver, OnDestroy, OnInit, ViewChild, ViewContainerRef } from "@angular/core";
 import { NgForm } from "@angular/forms";
 import { Router } from "@angular/router";
+import { Store } from "@ngrx/store";
 import { Subscription } from "rxjs";
+import { map, take } from "rxjs/operators";
 
 import { AlertComponent } from "../shared/alert/alert.component";
 import { PlaceholderDirective } from "../shared/directives/placeholder/placeHolder.directive";
 import { User } from "../shared/models/user.model";
 import { AuthService } from "./services/auth.service";
+import * as fromApp from "../store/app.reducer";
 
 @Component({
     selector: '',
@@ -25,10 +28,14 @@ export class AuthComponent implements OnInit, OnDestroy{
     constructor(
         private authService: AuthService, 
         private router: Router,
-        // private componentFactoryResolver: ComponentFactoryResolver,
+        private store: Store<fromApp.AppState>
        ) {}
     ngOnInit() {
-        this.authUserSubscription = this.authService.authUser.subscribe(
+        this.authUserSubscription = this.store.select('auth')
+        .pipe(
+            map(authState => {
+                return authState.user;
+            })).subscribe(
             (authUser) => {
                 if(authUser) {
                     this.isLoading = false;
