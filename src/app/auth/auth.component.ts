@@ -10,6 +10,7 @@ import { PlaceholderDirective } from "../shared/directives/placeholder/placeHold
 import { User } from "../shared/models/user.model";
 import { AuthService } from "./services/auth.service";
 import * as fromApp from "../store/app.reducer";
+import * as AuthActions from "../auth/store/auth.actions";
 
 @Component({
     selector: '',
@@ -20,7 +21,7 @@ export class AuthComponent implements OnInit, OnDestroy{
     isLogginMode = true;
     isLoading = false;
     error = null;
-
+    private storeSubscription: Subscription;
     private closeSubscription: Subscription;
 
     constructor(
@@ -28,9 +29,9 @@ export class AuthComponent implements OnInit, OnDestroy{
         private router: Router,
         private store: Store<fromApp.AppState>
        ) {}
-       
+
     ngOnInit() {
-        this.store.select('auth')
+        this.storeSubscription = this.store.select('auth')
         .pipe(
             map(authState => {
                 this.isLoading = authState.loading;
@@ -71,7 +72,9 @@ export class AuthComponent implements OnInit, OnDestroy{
     }
     
     onHandleError(){
-        this.error = null;
+        this.store.dispatch(
+            new AuthActions.ClearError()
+       )
     }    
     
     showErrorAlert(error: string) {
@@ -88,6 +91,7 @@ export class AuthComponent implements OnInit, OnDestroy{
     }
 
     ngOnDestroy() {
+        this.storeSubscription.unsubscribe();
         if (this.closeSubscription) {
             this.closeSubscription.unsubscribe();
         }

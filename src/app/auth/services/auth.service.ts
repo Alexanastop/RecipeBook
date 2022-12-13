@@ -1,9 +1,9 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
-import { Injectable } from "@angular/core";
+import { Injectable, OnDestroy } from "@angular/core";
 import { Router } from "@angular/router";
 import { Store } from "@ngrx/store";
 import { environment } from "environments/environment.prod";
-import { Observable, Subject, throwError } from "rxjs";
+import { Observable, Subject, Subscription, throwError } from "rxjs";
 import { catchError, tap } from "rxjs/operators";
 
 import { AuthUser } from "src/app/shared/models/authUser.model";
@@ -22,15 +22,14 @@ export interface AuthResponseData {
 }
 
 @Injectable({providedIn: 'root'})
-export class AuthService {
-    errorOccured = new Subject<string>();
-    authObs: Observable<AuthResponseData>;
+export class AuthService implements OnDestroy {
     private tokenExpirationTimer: any;
+    private storeSubscription: Subscription;
 
     constructor(
         private http: HttpClient, 
         private router: Router,
-        private store: Store<fromApp.AppState>) {}
+        private store: Store<fromApp.AppState>) {}   
     
     checkSignupOrLogin(user: User, isLogginMode: boolean) {
         if(isLogginMode) {
@@ -38,10 +37,12 @@ export class AuthService {
                 new AuthActions.LoginStart(user)
             );
         } else {
-            this.authObs = this.signup(user);
+            this.store.dispatch(
+                new AuthActions.SignupStart(user)
+            );
         }
 
-        this.store.select('auth').subscribe(
+        this.storeSubscription = this.store.select('auth').subscribe(
             authState => {
                 console.log(authState.authError);
             }
@@ -97,7 +98,7 @@ export class AuthService {
             )
 
             if(loadedUser.token) {
-                this.store.dispatch(new AuthActions.LoginSuccess(loadedUser));
+                this.store.dispatch(new AuthActions.AuthenticateSuccess(loadedUser));
                 const expirationDuration = 
                     new Date(user._tokenExpirationDate).getTime() - 
                     new Date().getTime();
@@ -122,6 +123,10 @@ export class AuthService {
         this.tokenExpirationTimer = setTimeout(() => {
             this.logout();
         }, expirationDuration)
+    }
+
+    ngOnDestroy() {
+        this.storeSubscription.unsubscribe();
     }
 
     private handleError(errorResponse: HttpErrorResponse) {
@@ -171,7 +176,7 @@ export class AuthService {
             expirationDate
         );
         
-        this.store.dispatch(new AuthActions.LoginSuccess(user));
+        this.store.dispatch(new AuthActions.AuthenticateSuccess(user));
         this.autoLogout(hours);
         localStorage.setItem('userData', JSON.stringify(user));
     }

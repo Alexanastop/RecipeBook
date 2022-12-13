@@ -19,9 +19,85 @@ export interface AuthResponseData {
   registered?: boolean;
 }
 
+const handleAuthentication = (responseData: AuthResponseData) => {
+  const hours = responseData.expiresIn ? +responseData.expiresIn * 1000 : 3600 * 1000;
+  const expirationDate = new Date(
+      new Date().getTime() + hours
+  );
+
+  const user = new AuthUser(
+      responseData.email,
+      responseData.localId, 
+      responseData.idToken, 
+      expirationDate
+  );
+
+  return new AuthActions.AuthenticateSuccess(user);
+}
+
+const handleError = (errorResponse) => {
+  let errorMessage = 'An unknown error occurred!';
+
+  if(errorResponse?.error || errorResponse?.error?.error) {
+
+      switch (errorResponse.error.error.message) {
+          case 'EMAIL_EXISTS':
+              errorMessage = 'This email already exists!';
+              break;
+          case 'OPERATION_NOT_ALLOWED':
+              errorMessage = 'This operation is not allowed!';
+              break;
+          case 'TOO_MANY_ATTEMPTS_TRY_LATER':
+              errorMessage = 'Too many attempts, please try again later!';
+              break;
+          case 'EMAIL_NOT_FOUND':
+              errorMessage = 'Email not found!';
+              break;
+          case 'INVALID_PASSWORD':
+              errorMessage = 'Inalid password!';
+              break;
+          case 'USER_DISABLED':
+              errorMessage = 'This useris disabled!';
+              break;                    
+          default:
+              errorMessage = 'Something went wrong, please try again later!';
+      }
+  } else {
+      return of(new AuthActions.AuthenticateFail(errorMessage));
+  }
+  return of(new AuthActions.AuthenticateFail(errorMessage));
+};
+
 @Injectable()
 export class AuthEffects {
   
+  constructor(
+    private actions$: Actions,
+    private http: HttpClient,
+    private router: Router
+  ) {}
+
+  authSignup$ = createEffect(() => 
+    this.actions$.pipe(
+      ofType(AuthActions.SIGNUP_START),
+      switchMap((signupAction: AuthActions.SignupStart) => {
+        return this.http
+        .post<AuthResponseData>(
+            'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + 
+                environment.firebaseAPIKey,
+            {
+                email: signupAction.payload.email,
+                password: signupAction.payload.password,
+                returnSecurityToken: true
+            }
+        ) .pipe(
+          map(responseData => handleAuthentication(responseData)),
+          catchError(errorResponse => handleError(errorResponse))
+        );
+      })
+    )
+  );
+
   authLogin? = createEffect(() => this.actions$.pipe(
       ofType(AuthActions.LOGIN_START),
       switchMap((authData: AuthActions.LoginStart) => {
@@ -36,53 +112,8 @@ export class AuthEffects {
             }
           )
           .pipe(
-            map(responseData => {
-              const hours = responseData.expiresIn ? +responseData.expiresIn * 1000 : 3600 * 1000;
-              const expirationDate = new Date(
-                  new Date().getTime() + hours
-              );
-
-              const user = new AuthUser(
-                  responseData.email,
-                  responseData.localId, 
-                  responseData.idToken, 
-                  expirationDate
-              );
-
-              return new AuthActions.LoginSuccess(user);
-            }),
-            catchError(errorResponse => {
-              let errorMessage = 'An unknown error occurred!';
-
-              if(errorResponse?.error || errorResponse?.error?.error) {
-
-                  switch (errorResponse.error.error.message) {
-                      case 'EMAIL_EXISTS':
-                          errorMessage = 'This email already exists!';
-                          break;
-                      case 'OPERATION_NOT_ALLOWED':
-                          errorMessage = 'This operation is not allowed!';
-                          break;
-                      case 'TOO_MANY_ATTEMPTS_TRY_LATER':
-                          errorMessage = 'Too many attempts, please try again later!';
-                          break;
-                      case 'EMAIL_NOT_FOUND':
-                          errorMessage = 'Email not found!';
-                          break;
-                      case 'INVALID_PASSWORD':
-                          errorMessage = 'Inalid password!';
-                          break;
-                      case 'USER_DISABLED':
-                          errorMessage = 'This useris disabled!';
-                          break;                    
-                      default:
-                          errorMessage = 'Something went wrong, please try again later!';
-                  }
-              } else {
-                  return of(new AuthActions.LoginFail(errorMessage));
-              }
-              return of(new AuthActions.LoginFail(errorMessage));
-            })
+            map(responseData => handleAuthentication(responseData)),
+            catchError(errorResponse => handleError(errorResponse))
           );
       })
     )
@@ -90,17 +121,11 @@ export class AuthEffects {
 
   authSuccess$ = createEffect(() => 
     this.actions$.pipe(
-      ofType(AuthActions.LOGIN_SUCCESS),
+      ofType(AuthActions.AUTHENTICATE_SUCCESS),
       tap(() => 
         this.router.navigate(['/'])
       )
     ),
     { dispatch: false }
   );
-
-  constructor(
-    private actions$: Actions,
-    private http: HttpClient,
-    private router: Router
-  ) {}
 }
