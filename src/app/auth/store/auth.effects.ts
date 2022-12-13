@@ -32,6 +32,7 @@ const handleAuthentication = (responseData: AuthResponseData) => {
       expirationDate
   );
 
+  localStorage.setItem('userData', JSON.stringify(user));
   return new AuthActions.AuthenticateSuccess(user);
 }
 
@@ -119,13 +120,46 @@ export class AuthEffects {
     )
   );
 
-  authSuccess$ = createEffect(() => 
+  authRedirect$ = createEffect(() => 
     this.actions$.pipe(
-      ofType(AuthActions.AUTHENTICATE_SUCCESS),
+      ofType(AuthActions.AUTHENTICATE_SUCCESS, AuthActions.LOGOUT),
       tap(() => 
         this.router.navigate(['/'])
       )
     ),
     { dispatch: false }
   );
+
+  authLogout$ = createEffect(() => 
+    this.actions$.pipe(
+      ofType(AuthActions.LOGOUT),
+      tap(() => 
+        localStorage.removeItem('userData')
+      )
+    ),
+    { dispatch: false }
+  );
+
+  autoLogin$ = createEffect(() => 
+    this.actions$.pipe(
+      ofType(AuthActions.AUTO_LOGIN),
+      map(() => {
+        const user = JSON.parse( localStorage.getItem('userData'));
+        if(user) {
+            const loadedUser = new AuthUser(
+                user.email,
+                user.id,
+                user._token,
+                user._tokenExpirationDate
+            )
+      
+            if(loadedUser.token) {
+              return new AuthActions.AuthenticateSuccess(loadedUser);
+            }
+        } 
+
+        return { type: 'DUMMY' };
+      })
+    )
+  ); 
 }

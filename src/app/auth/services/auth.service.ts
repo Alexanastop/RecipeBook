@@ -3,7 +3,7 @@ import { Injectable, OnDestroy } from "@angular/core";
 import { Router } from "@angular/router";
 import { Store } from "@ngrx/store";
 import { environment } from "environments/environment.prod";
-import { Observable, Subject, Subscription, throwError } from "rxjs";
+import { Subscription, throwError } from "rxjs";
 import { catchError, tap } from "rxjs/operators";
 
 import { AuthUser } from "src/app/shared/models/authUser.model";
@@ -49,44 +49,6 @@ export class AuthService implements OnDestroy {
         );
     }
 
-    signup(user: User) {
-        return this.http
-            .post<AuthResponseData>(
-                'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + 
-                    environment.firebaseAPIKey,
-                {
-                    email: user.email,
-                    password: user.password,
-                    returnSecurityToken: true
-                }
-            )
-            .pipe(
-                catchError(this.handleError),
-                tap(responseData => {
-                    this.handleAuthentication(responseData);
-                })
-            )        
-    }
-        
-    login(user: User) {
-        return this.http
-        .post<AuthResponseData>(
-            'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + 
-                environment.firebaseAPIKey,
-            {
-                email: user.email,
-                password: user.password,
-                returnSecurityToken: true
-            }
-        )
-        .pipe(
-            catchError(this.handleError),
-            tap(responseData => {
-                this.handleAuthentication(responseData);
-            })
-        )        
-    }
-
     autoLogin() {
         const user = JSON.parse( localStorage.getItem('userData'));
         if(user) {
@@ -110,8 +72,8 @@ export class AuthService implements OnDestroy {
     }
 
     logout() {
-        this.store.dispatch(new AuthActions.Logout());
-        this.router.navigate(['/auth']);
+        // this.store.dispatch(new AuthActions.Logout());
+        // this.router.navigate(['/auth']);
         localStorage.removeItem('userData');
         if(this.tokenExpirationTimer) {
             clearTimeout(this.tokenExpirationTimer);
