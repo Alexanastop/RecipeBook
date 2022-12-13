@@ -3,7 +3,7 @@ import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { Store } from "@ngrx/store";
 import { environment } from "environments/environment.prod";
-import { BehaviorSubject, Observable, Subject, throwError } from "rxjs";
+import { Observable, Subject, throwError } from "rxjs";
 import { catchError, tap } from "rxjs/operators";
 
 import { AuthUser } from "src/app/shared/models/authUser.model";
@@ -11,7 +11,7 @@ import { User } from "src/app/shared/models/user.model";
 import * as fromApp from "../../store/app.reducer";
 import * as AuthActions from "../../auth/store/auth.actions";
 
-interface AuthResponseData {
+export interface AuthResponseData {
 //   kind: string;
   idToken: string;
   email: string;
@@ -24,7 +24,6 @@ interface AuthResponseData {
 @Injectable({providedIn: 'root'})
 export class AuthService {
     errorOccured = new Subject<string>();
-    // authUser = new BehaviorSubject<AuthUser>(null);
     authObs: Observable<AuthResponseData>;
     private tokenExpirationTimer: any;
 
@@ -34,25 +33,26 @@ export class AuthService {
         private store: Store<fromApp.AppState>) {}
     
     checkSignupOrLogin(user: User, isLogginMode: boolean) {
-        if(isLogginMode){
-            this.authObs = this.login(user);
+        if(isLogginMode) {
+            this.store.dispatch(
+                new AuthActions.LoginStart(user)
+            );
         } else {
             this.authObs = this.signup(user);
         }
 
-        this.authObs.subscribe(
-            responseData => {
-                console.log(responseData);
-            }
-            , (errorMessage) => {
-                this.errorOccured.next(errorMessage);
+        this.store.select('auth').subscribe(
+            authState => {
+                console.log(authState.authError);
             }
         );
     }
 
     signup(user: User) {
         return this.http
-            .post<AuthResponseData>('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + environment.firebaseAPIKey,
+            .post<AuthResponseData>(
+                'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + 
+                    environment.firebaseAPIKey,
                 {
                     email: user.email,
                     password: user.password,
@@ -70,7 +70,8 @@ export class AuthService {
     login(user: User) {
         return this.http
         .post<AuthResponseData>(
-            'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + environment.firebaseAPIKey,
+            'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + 
+                environment.firebaseAPIKey,
             {
                 email: user.email,
                 password: user.password,
@@ -96,8 +97,7 @@ export class AuthService {
             )
 
             if(loadedUser.token) {
-                // this.authUser.next(loadedUser);
-                this.store.dispatch(new AuthActions.Login(loadedUser));
+                this.store.dispatch(new AuthActions.LoginSuccess(loadedUser));
                 const expirationDuration = 
                     new Date(user._tokenExpirationDate).getTime() - 
                     new Date().getTime();
@@ -109,7 +109,6 @@ export class AuthService {
     }
 
     logout() {
-        // this.authUser.next(null);
         this.store.dispatch(new AuthActions.Logout());
         this.router.navigate(['/auth']);
         localStorage.removeItem('userData');
@@ -171,9 +170,8 @@ export class AuthService {
             responseData.idToken, 
             expirationDate
         );
-
-        // this.authUser.next(user);
-        this.store.dispatch(new AuthActions.Login(user));
+        
+        this.store.dispatch(new AuthActions.LoginSuccess(user));
         this.autoLogout(hours);
         localStorage.setItem('userData', JSON.stringify(user));
     }

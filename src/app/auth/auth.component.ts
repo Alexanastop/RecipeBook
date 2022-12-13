@@ -18,8 +18,6 @@ import * as fromApp from "../store/app.reducer";
 export class AuthComponent implements OnInit, OnDestroy{
     @ViewChild(PlaceholderDirective, { static: false }) alertHost: PlaceholderDirective;
     isLogginMode = true;
-    authUserSubscription: Subscription;
-    errorSubscription: Subscription;
     isLoading = false;
     error = null;
 
@@ -30,10 +28,13 @@ export class AuthComponent implements OnInit, OnDestroy{
         private router: Router,
         private store: Store<fromApp.AppState>
        ) {}
+       
     ngOnInit() {
-        this.authUserSubscription = this.store.select('auth')
+        this.store.select('auth')
         .pipe(
             map(authState => {
+                this.isLoading = authState.loading;
+                this.error = authState.authError;
                 return authState.user;
             })).subscribe(
             (authUser) => {
@@ -42,15 +43,10 @@ export class AuthComponent implements OnInit, OnDestroy{
                     console.log(authUser);
                     this.router.navigate(['/recipes']);
                 }
-            }
-        );
 
-        this.errorSubscription = this.authService.errorOccured.subscribe(
-            error => {
-                console.log(error);
-                this.showErrorAlert(error);
-                // this.error = error;
-                this.isLoading = false;
+                if(this.error) {
+                    this.showErrorAlert(this.error);
+                }
             }
         );
     }
@@ -61,7 +57,6 @@ export class AuthComponent implements OnInit, OnDestroy{
     
     onSubmit(form: NgForm) {
         if(form.valid) {
-
             let user = new User(
                 form.value.email,
                 form.value.password 
@@ -93,7 +88,6 @@ export class AuthComponent implements OnInit, OnDestroy{
     }
 
     ngOnDestroy() {
-        this.authUserSubscription.unsubscribe();
         if (this.closeSubscription) {
             this.closeSubscription.unsubscribe();
         }
