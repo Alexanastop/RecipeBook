@@ -34,7 +34,7 @@ const handleAuthentication = (responseData: AuthResponseData) => {
   );
 
   localStorage.setItem('userData', JSON.stringify(user));
-  return new AuthActions.AuthenticateSuccess(user);
+  return new AuthActions.AuthenticateSuccess(user, true);
 }
 
 const handleError = (errorResponse) => {
@@ -130,8 +130,11 @@ export class AuthEffects {
   authRedirect$ = createEffect(() => 
     this.actions$.pipe(
       ofType(AuthActions.AUTHENTICATE_SUCCESS),
-      tap(() => 
-        this.router.navigate(['/'])
+      tap((authSuccessAction: AuthActions.AuthenticateSuccess) => {
+        if(authSuccessAction.redirect){
+          this.router.navigate(['/'])
+        }
+      }
       )
     ),
     { dispatch: false }
@@ -168,7 +171,7 @@ export class AuthEffects {
                 new Date().getTime();
               this.authService.setLogoutTimer(expirationDuration);
 
-              return new AuthActions.AuthenticateSuccess(loadedUser);
+              return new AuthActions.AuthenticateSuccess(loadedUser, false);
             }
         } 
 

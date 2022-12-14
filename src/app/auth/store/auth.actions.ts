@@ -19,7 +19,7 @@ export class LoginStart implements Action {
 export class AuthenticateSuccess implements Action {
     readonly type = AUTHENTICATE_SUCCESS;
 
-    constructor(public payload: AuthUser) {}
+    constructor(public payload: AuthUser, public redirect: boolean) {}
 }
 
 export class AuthenticateFail implements Action {
